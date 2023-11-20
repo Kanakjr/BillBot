@@ -1,123 +1,84 @@
-from langchain.chat_models import ChatOpenAI
-from langchain.schema import AIMessage, HumanMessage, SystemMessage
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.chains.summarize import load_summarize_chain
-from langchain.schema.document import Document
-import streamlit as st
-import os
-import json
+import json, os
+import pandas as pd
+from llm_utils import summarize_bill, get_recommended_question
+import base64
+
+# Function to extract text from a PDF file
+def extract_text_from_pdf(json_data):
+    text = json_data["analyzeResult"]["content"]
+    return text
 
 
-def get_llm(OPENAI_MODEL=None, max_tokens=1000):
-    if not OPENAI_MODEL:
-        OPENAI_MODEL = os.environ.get("OPENAI_MODEL")
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-    llm = ChatOpenAI(
-        temperature=0,
-        model_name=OPENAI_MODEL,
-        openai_api_key=OPENAI_API_KEY,
-        max_tokens=max_tokens,
-    )
-    return llm
+# Function to load JSON data from a file
+def load_json_data(json_path):
+    with open(json_path, "r") as json_file:
+        data = json.load(json_file)
+    return data
 
 
-@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
-def get_openAPI_response(text, task, OPENAI_MODEL=None, max_tokens=1000, llm=None):
-    messages = [HumanMessage(content=text)]
-    llm = get_llm(OPENAI_MODEL=OPENAI_MODEL, max_tokens=max_tokens)
-    with st.spinner(task):
-        response = llm.invoke(messages, config={"run_name": task})
-        response = str(response.content)
-    return response
+def convert_keyvalues_to_dict(json_data, confidence_threshold=0.5):
+    result_dict = {}
+    for pair in json_data["analyzeResult"]["keyValuePairs"]:
+        confidence = pair.get("confidence", 1.0)
+
+        if confidence >= confidence_threshold:
+            key_content = pair["key"]["content"]
+            value_content = ""
+            if "value" in pair:
+                value_content = pair["value"]["content"]
+            result_dict[key_content] = value_content
+    return result_dict
 
 
-@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
-def summarize_bill(text, task="Summarize", chain_type="stuff"):
-    docs = [Document(page_content=text)]
-    llm = get_llm()
-    prompt_template = """## Summarise the given document:
-## Doucment Text:
-{text}
-
-## Document Summary:"""
-    prompt = PromptTemplate.from_template(prompt_template)
-    chain = load_summarize_chain(llm, prompt=prompt, chain_type=chain_type)
-    with st.spinner(task):
-        result = chain.invoke(docs, config={"run_name": task})
-    return result["output_text"]
-
-
-@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
-def get_recommended_question(document_summary, key_values=[]):
-    key_values = format_dict_as_string(key_values)
-    prompt = PromptTemplate(
-        input_variables=["document_summary", "key_values"],
-        template="""## You are given a document summary and some of the key value data from the document. 
-## Document Summary{document_summary} 
-## Document Data:{key_values}
-
-## Generate a list of 10 recommended questions on the given document. Format it as markdown text.
-""",
-    )
-    llm = get_llm()
-    chain = LLMChain(llm=llm, prompt=prompt)
-    response = chain.invoke(
-        input={
-            "document_summary": document_summary,
-            "key_values": key_values,
-        },
-        config={"run_name": "RecommenedQBill"},
-    )
-    response = response["text"]
-    return response
+def convert_tables_to_df(json_data):
+    tables = json_data["analyzeResult"]["tables"]
+    dataframes = []
+    for table in tables:
+        rows = table["rowCount"]
+        columns = table["columnCount"]
+        cells = table["cells"]
+        # Initialize an empty DataFrame for the current table
+        df = pd.DataFrame(index=range(rows), columns=range(columns))
+        # Fill the DataFrame with cell content
+        for cell in cells:
+            row_idx = cell["rowIndex"]
+            col_idx = cell["columnIndex"]
+            content = cell.get("content", "")
+            df.at[row_idx, col_idx] = content
+        # Append the DataFrame to the list
+        dataframes.append(df)
+    return dataframes
 
 
-@st.cache_data(ttl=60 * 60 * 12)  # Cache data for 12 hours
-def get_billbot_response(question, document_summary, key_values=[]):
-    key_values = format_dict_as_string(key_values)
-    prompt = PromptTemplate(
-        input_variables=["question", "document_summary", "key_values"],
-        template="""## You are given a document summary and some of the key value data from the document. 
-## Document Summary{document_summary} 
-## Document Data:{key_values}
-
-## You have to answer the given user question stricty from the document. 
-Do not assume any values or answer on your own. 
-If you don't know the answer resppnd with "I don't know the answer"
-
-## Question: {question}
-""",
-    )
-    llm = get_llm()
-    chain = LLMChain(llm=llm, prompt=prompt)
-    response = chain.invoke(
-        input={
-            "question": question,
-            "document_summary": document_summary,
-            "key_values": key_values,
-        },
-        config={"run_name": "BillBot"},
-    )
-    response = response["text"]
-    return response
+def get_or_generate_summary(pdf_path, pdf_text):
+    summary_file_path = pdf_path + "_summary.txt"
+    # Check if the summary file exists
+    if os.path.exists(summary_file_path):
+        with open(summary_file_path, "r") as summary_file:
+            bill_summary = summary_file.read()
+    else:
+        bill_summary = summarize_bill(text=pdf_text)
+        # Save the summary to the file
+        with open(summary_file_path, "w") as summary_file:
+            summary_file.write(bill_summary)
+    return bill_summary
 
 
-def format_dict_as_string(input_dict):
-    formatted_string = ""
-    for key, value in input_dict.items():
-        formatted_string += f"{key} : {value}\n"
-    return formatted_string.strip()
+def get_or_generate_recommended_questions(pdf_path, document_summary, key_values):
+    recommended_questions_file_path = pdf_path + "_questions.txt"
+    # Check if the summary file exists
+    if os.path.exists(recommended_questions_file_path):
+        with open(recommended_questions_file_path, "r") as recommended_questions_file:
+            recommended_questions = recommended_questions_file.read()
+    else:
+        recommended_questions = get_recommended_question(document_summary, key_values)
+        # Save the summary to the file
+        with open(recommended_questions_file_path, "w") as recommended_questions_file:
+            recommended_questions_file.write(recommended_questions)
+    return recommended_questions
 
-
-if __name__ == "__main__":
-    import os
-    from dotenv import load_dotenv
-    import warnings
-
-    warnings.filterwarnings(
-        "ignore",
-        category=UserWarning,
-        module="streamlit.runtime.caching.cache_data_api",
-    )
-    load_dotenv("./app/.env")
+def displayPDF(file):
+    with open(file, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    pdf_md = F'<embed src="data:application/pdf;base64,{base64_pdf}" width=100% height="500" type="application/pdf">'
+    return pdf_md
