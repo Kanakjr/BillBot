@@ -86,6 +86,13 @@ class BillBotApp:
         self.setup_sidebar_about()
         self.main()
 
+    def get_bot_response(self):
+        st.session_state["bot_response"] = get_billbot_response(
+            question=st.session_state["bot_question"],
+            document_summary=st.session_state["bill_summary"],
+            key_values=st.session_state["key_value_pairs"],
+        )
+
     def main(self):
         pdf_path = os.path.join(DATA_FOLDER, st.session_state["selected_pdf"])
         json_path = pdf_path + ".json"
@@ -98,27 +105,25 @@ class BillBotApp:
         recommended_questions = get_or_generate_recommended_questions(
             pdf_path, bill_summary, key_value_pairs
         )
+        
+        st.session_state["bill_summary"] = bill_summary
+        st.session_state["key_value_pairs"] = key_value_pairs
 
         bot_tab, content_tab = st.tabs(["Bot", "Content"])
         with bot_tab:
             col1, col2 = st.columns([1, 1], gap="medium")
-            question = col1.text_area("Question on bill document")
-            if col1.button("Get Answer"):
-                st.session_state["bot_response"] = get_billbot_response(
-                    question=question,
-                    document_summary=bill_summary,
-                    key_values=key_value_pairs,
-                )
+            col1.text_area("Question on bill document", key="bot_question")
+            col1.button("Get Answer", on_click=self.get_bot_response)
             if st.session_state["bot_response"]:
                 col1.write(st.session_state["bot_response"])
             col2.markdown("**Recommended Questions:**")
             col2.markdown(recommended_questions)
 
         with content_tab:
-            col1,col2 = st.columns(2)
+            col1, col2 = st.columns(2)
             # col1.markdown(f"{pdf_path}")
             col1.markdown(displayPDF(pdf_path), unsafe_allow_html=True)
-            col2.text_area(label="PDF Text:", value=pdf_text,height=200)
+            col2.text_area(label="PDF Text:", value=pdf_text, height=200)
             col2.text_area(label="Summary:", value=bill_summary, height=250)
             with st.expander("Extracted keyValuePairs:"):
                 st.table(key_value_pairs)
@@ -144,6 +149,7 @@ st.markdown(
     </style>""",
     unsafe_allow_html=True,
 )
+st.title("🤖 Bill Bot")
 
 # Initialize and run the Bill Bot Streamlit application
 app = BillBotApp()

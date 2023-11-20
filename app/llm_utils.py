@@ -72,7 +72,7 @@ def get_recommended_question(document_summary, key_values=[]):
     return response
 
 
-@st.cache_data(ttl=60 * 60 * 12)  # Cache data for 12 hours
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
 def get_billbot_response(question, document_summary, key_values=[]):
     key_values = format_dict_as_string(key_values)
     prompt = PromptTemplate(
