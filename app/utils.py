@@ -48,6 +48,31 @@ def summarize_bill(text, task="Summarize", chain_type="stuff"):
     return result["output_text"]
 
 
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
+def get_recommended_question(document_summary, key_values=[]):
+    key_values = format_dict_as_string(key_values)
+    prompt = PromptTemplate(
+        input_variables=["document_summary", "key_values"],
+        template="""## You are given a document summary and some of the key value data from the document. 
+## Document Summary{document_summary} 
+## Document Data:{key_values}
+
+## Generate a list of 10 recommended questions on the given document. Format it as markdown text.
+""",
+    )
+    llm = get_llm()
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.invoke(
+        input={
+            "document_summary": document_summary,
+            "key_values": key_values,
+        },
+        config={"run_name": "RecommenedQBill"},
+    )
+    response = response["text"]
+    return response
+
+
 @st.cache_data(ttl=60 * 60 * 12)  # Cache data for 12 hours
 def get_billbot_response(question, document_summary, key_values=[]):
     key_values = format_dict_as_string(key_values)

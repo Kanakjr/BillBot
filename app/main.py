@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import json
 import pandas as pd
-from utils import get_billbot_response, summarize_bill
+from utils import get_billbot_response, summarize_bill, get_recommended_question
 from dotenv import load_dotenv
 
 load_dotenv("./.env")
@@ -69,6 +69,19 @@ def get_or_generate_summary(pdf_path, pdf_text):
             summary_file.write(bill_summary)
     return bill_summary
 
+def get_or_generate_recommended_questions(pdf_path, document_summary, key_values):
+    recommended_questions_file_path = pdf_path + "_questions.txt"
+    # Check if the summary file exists
+    if os.path.exists(recommended_questions_file_path):
+        with open(recommended_questions_file_path, "r") as recommended_questions_file:
+            recommended_questions = recommended_questions_file.read()
+    else:
+        recommended_questions = get_recommended_question(document_summary, key_values)
+        # Save the summary to the file
+        with open(recommended_questions_file_path, "w") as recommended_questions_file:
+            recommended_questions_file.write(recommended_questions)
+    return recommended_questions
+
 
 def setup_sidebar():
     with st.sidebar:
@@ -131,16 +144,20 @@ def main():
                 st.write(df)
 
     with bot_tab:
-        question = st.text_input("Question on bill document")
-        if st.button("Get Answer"):
+        col1,col2 = st.columns([1,1],gap="medium")
+        question = col1.text_area("Question on bill document")
+        if col1.button("Get Answer"):
             st.session_state["bot_response"] = get_billbot_response(
                 question=question,
                 document_summary=bill_summary,
                 key_values=key_value_pairs,
             )
         if st.session_state["bot_response"]:
-            st.write(st.session_state["bot_response"])
-
+            col1.write(st.session_state["bot_response"])
+        
+        col2.markdown("**Recommended Questions:**")
+        recommended_questions = get_or_generate_recommended_questions(pdf_path,bill_summary, key_value_pairs )
+        col2.markdown(recommended_questions)
 
 def initialize_session_state():
     if "bot_response" not in st.session_state:
