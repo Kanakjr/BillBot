@@ -2,47 +2,50 @@ import json, os
 import pandas as pd
 from llm_utils import summarize_bill, get_recommended_question
 import base64
+from formrecognizer import analyze_pdf_document
 
 # Function to extract text from a PDF file
 def extract_text_from_pdf(json_data):
-    text = json_data["analyzeResult"]["content"]
+    print(json_data)
+    text = json_data["content"]
     return text
 
 
-# Function to load JSON data from a file
-def load_json_data(json_path):
-    with open(json_path, "r") as json_file:
-        data = json.load(json_file)
-    return data
+# # Function to load JSON data from a file
+# def load_json_data(json_path):
+#     with open(json_path, "r") as json_file:
+#         data = json.load(json_file)
+#     return data
 
 
 def convert_keyvalues_to_dict(json_data, confidence_threshold=0.5):
     result_dict = {}
-    for pair in json_data["analyzeResult"]["keyValuePairs"]:
+    for pair in json_data["key_value_pairs"]:
         confidence = pair.get("confidence", 1.0)
-
         if confidence >= confidence_threshold:
             key_content = pair["key"]["content"]
             value_content = ""
             if "value" in pair:
-                value_content = pair["value"]["content"]
+                if pair["value"]:
+                    value_content = pair["value"]["content"]
             result_dict[key_content] = value_content
     return result_dict
 
 
 def convert_tables_to_df(json_data):
-    tables = json_data["analyzeResult"]["tables"]
+    tables = json_data["tables"]
+    print(tables)
     dataframes = []
     for table in tables:
-        rows = table["rowCount"]
-        columns = table["columnCount"]
+        rows = table["row_count"]
+        columns = table["column_count"]
         cells = table["cells"]
         # Initialize an empty DataFrame for the current table
         df = pd.DataFrame(index=range(rows), columns=range(columns))
         # Fill the DataFrame with cell content
         for cell in cells:
-            row_idx = cell["rowIndex"]
-            col_idx = cell["columnIndex"]
+            row_idx = cell["row_index"]
+            col_idx = cell["column_index"]
             content = cell.get("content", "")
             df.at[row_idx, col_idx] = content
         # Append the DataFrame to the list
@@ -76,6 +79,19 @@ def get_or_generate_recommended_questions(pdf_path, document_summary, key_values
         with open(recommended_questions_file_path, "w") as recommended_questions_file:
             recommended_questions_file.write(recommended_questions)
     return recommended_questions
+
+def get_or_generate_analyze_json(pdf_path):
+    analyze_json_file_path = pdf_path + ".json"
+    if os.path.exists(analyze_json_file_path):
+        with open(analyze_json_file_path, "r") as analyze_json_file:
+            analyze_json = analyze_json_file.read()
+        return json.loads(analyze_json)
+    else:
+        analyze_results = analyze_pdf_document(pdf_path)
+        analyze_json = json.dumps(analyze_results, indent=2)
+        with open(analyze_json_file_path, "w") as analyze_json_file:
+            analyze_json_file.write(analyze_json)
+        return analyze_results
 
 def displayPDF(file):
     with open(file, "rb") as f:

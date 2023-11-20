@@ -4,11 +4,11 @@ from dotenv import load_dotenv
 
 from utils import (
     extract_text_from_pdf,
-    load_json_data,
     convert_keyvalues_to_dict,
     convert_tables_to_df,
     get_or_generate_recommended_questions,
     get_or_generate_summary,
+    get_or_generate_analyze_json,
     displayPDF,
 )
 from llm_utils import get_billbot_response
@@ -46,24 +46,31 @@ class BillBotApp:
         with st.sidebar:
             # st.markdown("""# Welcome, Kanak Dahake""")
             # st.markdown("---")
+
+            uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
+            if uploaded_file is not None:
+                # Save the uploaded file to the data folder
+                with open(os.path.join(DATA_FOLDER, uploaded_file.name), "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # Auto-select the uploaded file in the selectbox
+                st.session_state["selected_pdf"] = uploaded_file.name
+
             pdf_files = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".pdf")]
+            # Selectbox to choose a PDF file
             st.session_state["selected_pdf"] = st.selectbox(
-                "Select PDF file", pdf_files
+                "Select PDF file", pdf_files, index=pdf_files.index(st.session_state["selected_pdf"]) if st.session_state["selected_pdf"] else 0
             )
+
             st.markdown("---")
             st.markdown("#### My Settings")
             OPENAI_MODEL = st.radio(
                 "Choose OpenAI Model",
                 (
                     "gpt-4-1106-preview",
-                    "gpt-4",
-                    "gpt-4-32k",
                     "gpt-3.5-turbo-1106",
-                    "gpt-3.5-turbo-16k",
-                    "gpt-3.5-turbo",
-                    "text-davinci-003",
                 ),
-                index=3,
+                index=1,
             )
             os.environ["OPENAI_MODEL"] = OPENAI_MODEL
 
@@ -95,14 +102,16 @@ class BillBotApp:
 
     def main(self):
         pdf_path = os.path.join(DATA_FOLDER, st.session_state["selected_pdf"])
-        json_path = pdf_path + ".json"
 
-        json_data = load_json_data(json_path)
-        pdf_text = extract_text_from_pdf(json_data)
-        key_value_pairs = convert_keyvalues_to_dict(json_data)
-        df_list = convert_tables_to_df(json_data)
-        bill_summary = get_or_generate_summary(pdf_path, pdf_text)
-        recommended_questions = get_or_generate_recommended_questions(
+        with st.spinner("Analysing the document Layout and Data..."):
+            json_data = get_or_generate_analyze_json(pdf_path)
+            pdf_text = extract_text_from_pdf(json_data)
+            key_value_pairs = convert_keyvalues_to_dict(json_data)
+            df_list = convert_tables_to_df(json_data)
+        with st.spinner("Summarising the Document..."):
+            bill_summary = get_or_generate_summary(pdf_path, pdf_text)
+        with st.spinner("Getting Recommened Questions..."):
+            recommended_questions = get_or_generate_recommended_questions(
             pdf_path, bill_summary, key_value_pairs
         )
         
@@ -145,7 +154,7 @@ st.markdown(
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
         .stDeployButton {visibility: hidden;}
-        .block-container {padding-top: 1.2rem; padding-bottom: 0rem; }
+        .block-container {padding-top: .7rem; padding-bottom: 0rem; }
     </style>""",
     unsafe_allow_html=True,
 )

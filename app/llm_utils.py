@@ -25,9 +25,8 @@ def get_llm(OPENAI_MODEL=None, max_tokens=1000):
 def get_openAPI_response(text, task, OPENAI_MODEL=None, max_tokens=1000, llm=None):
     messages = [HumanMessage(content=text)]
     llm = get_llm(OPENAI_MODEL=OPENAI_MODEL, max_tokens=max_tokens)
-    with st.spinner(task):
-        response = llm.invoke(messages, config={"run_name": task})
-        response = str(response.content)
+    response = llm.invoke(messages, config={"run_name": task})
+    response = str(response.content)
     return response
 
 
@@ -42,8 +41,7 @@ def summarize_bill(text, task="Summarize", chain_type="stuff"):
 ## Document Summary:"""
     prompt = PromptTemplate.from_template(prompt_template)
     chain = load_summarize_chain(llm, prompt=prompt, chain_type=chain_type)
-    with st.spinner(task):
-        result = chain.invoke(docs, config={"run_name": task})
+    result = chain.invoke(docs, config={"run_name": task})
     return result["output_text"]
 
 
