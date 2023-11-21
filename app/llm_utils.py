@@ -6,6 +6,7 @@ from langchain.chains.summarize import load_summarize_chain
 from langchain.schema.document import Document
 import streamlit as st
 import os
+import json
 
 
 def get_llm(OPENAI_MODEL=None, max_tokens=1000):
@@ -51,8 +52,11 @@ def get_recommended_question(document_summary, key_values=[]):
     prompt = PromptTemplate(
         input_variables=["document_summary", "key_values"],
         template="""## You are given a document summary and some of the key value data from the document. 
-## Document Summary{document_summary} 
-## Document Data:{key_values}
+## Document Summary: 
+{document_summary} 
+
+## Document Data: 
+{key_values}
 
 ## Generate a list of 10 recommended questions on the given document. Format it as markdown text.
 """,
@@ -70,14 +74,58 @@ def get_recommended_question(document_summary, key_values=[]):
     return response
 
 
+def get_bill_metadata(document_content, key_values=[]):
+    # Assuming format_dict_as_string is a function that formats key_values into a string
+    key_values_str = format_dict_as_string(key_values)
+    prompt = PromptTemplate(
+        input_variables=["document_content", "key_values"],
+        template="""## You are given a document summary and some of the key value data from the document. 
+## Document Content: 
+{document_content} 
+
+## Document Data: 
+{key_values}
+
+## Based on the document summary and data provided, please output the following in JSON format:
+- recommended_questions: A list of 10 recommended questions about the document.
+- keywords: A list of keywords or key phrases that represent the main topics or themes of the document.
+- named_entities: A list of named entities from the document, with each named entity being a list of the extracted name and its type (PERSON,Organization,Location,Date,Time,etc) (e.g., [["Steve Jobs", "PERSON"], ["India", "COUNTRY"]]).
+- document_type: Identify and categorize the type of document (e.g., "bill", "invoice", "ID card", "invoice", "contract", "report", "legal document" etc.).
+- language: Determine the language in which the document is written
+- currency: Determine the currency if available in which the bill is presented.
+
+## JSON Output:
+""",
+    )
+    # Get the language model response
+    llm = get_llm(max_tokens=2000)
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.invoke(
+        input={
+            "document_content": document_content,
+            "key_values": key_values_str,
+        },
+        config={"run_name": "BillMetadata"},
+    )
+
+    # Parse the response, assuming the model returns a properly formatted JSON string
+    response_data = json.loads(response["text"])
+
+    # Output the combined dictionary
+    return response_data
+
+
 @st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
 def get_billbot_response(question, document_summary, key_values=[]):
     key_values = format_dict_as_string(key_values)
     prompt = PromptTemplate(
         input_variables=["question", "document_summary", "key_values"],
         template="""## You are given a document summary and some of the key value data from the document. 
-## Document Summary{document_summary} 
-## Document Data:{key_values}
+## Document Summary:
+{document_summary} 
+
+## Document Data:
+{key_values}
 
 ## You have to answer the given user question stricty from the document. 
 Do not assume any values or answer on your own. 
@@ -111,6 +159,7 @@ if __name__ == "__main__":
     import os
     from dotenv import load_dotenv
     import warnings
+    from utils import get_or_generate_analyze_json,convert_keyvalues_to_dict,extract_text_from_pdf
 
     warnings.filterwarnings(
         "ignore",
@@ -118,3 +167,9 @@ if __name__ == "__main__":
         module="streamlit.runtime.caching.cache_data_api",
     )
     load_dotenv("./app/.env")
+
+    pdf_path = "./app/data/LT E-BillPDF_231119_145147.pdf"
+    json_data = get_or_generate_analyze_json(pdf_path)
+    document_content = extract_text_from_pdf(json_data)
+    key_values = convert_keyvalues_to_dict(json_data)
+    get_bill_metadata(document_content, key_values)

@@ -6,9 +6,10 @@ from utils import (
     extract_text_from_pdf,
     convert_keyvalues_to_dict,
     convert_tables_to_df,
-    get_or_generate_recommended_questions,
+    get_or_generate_metadata_json,
     get_or_generate_summary,
     get_or_generate_analyze_json,
+    get_or_generate_recommended_questions,
     displayPDF,
 )
 from llm_utils import get_billbot_response
@@ -100,6 +101,38 @@ class BillBotApp:
             key_values=st.session_state["key_value_pairs"],
         )
 
+    def named_entities_to_str(self,input_data):
+        organized_data = {}
+        for item in input_data:
+            value = item[1]
+            key = item[0]
+            if value not in organized_data:
+                organized_data[value] = [key]
+            else:
+                organized_data[value].append(key)
+
+        result_string = ""
+        for key, values in organized_data.items():
+            result_string += f"- **{key}** : {' | '.join(values)}\n"
+        return result_string
+
+    def display_bill_info(self,json_data,recommended_questions=None):
+        with st.expander("Metadata"):
+            named_entities = self.named_entities_to_str(json_data["named_entities"])
+            st.markdown(f"""**Document Type:** {json_data["document_type"]}
+                        
+**Keywords:**  {" | ".join(json_data["keywords"])}
+
+**Named Entities:**
+{named_entities}
+    """)
+        if not recommended_questions:
+            recommended_questions = ""
+            for idx,question in enumerate(json_data["recommended_questions"]):
+                recommended_questions += f"{idx+1}. {question}\n"
+        with st.expander("Recommended Questions:",expanded=True):
+            st.markdown(f"""{recommended_questions}""")
+
     def main(self):
         pdf_path = os.path.join(DATA_FOLDER, st.session_state["selected_pdf"])
 
@@ -110,10 +143,10 @@ class BillBotApp:
             df_list = convert_tables_to_df(json_data)
         with st.spinner("Summarising the Document..."):
             bill_summary = get_or_generate_summary(pdf_path, pdf_text)
-        with st.spinner("Getting Recommened Questions..."):
-            recommended_questions = get_or_generate_recommended_questions(
-            pdf_path, bill_summary, key_value_pairs
-        )
+        with st.spinner("Generating Bill Metadata..."):
+            bill_medata = get_or_generate_metadata_json(pdf_path,pdf_text,key_value_pairs)
+        with st.spinner("Generating Recommended Questions..."):
+            recommended_questions = get_or_generate_recommended_questions(pdf_path, bill_summary, key_value_pairs)
         
         st.session_state["bill_summary"] = bill_summary
         st.session_state["key_value_pairs"] = key_value_pairs
@@ -122,11 +155,13 @@ class BillBotApp:
         with bot_tab:
             col1, col2 = st.columns([1, 1], gap="medium")
             col1.text_area("Question on bill document", key="bot_question")
-            col1.button("Get Answer", on_click=self.get_bot_response)
+            col1.button("Get Answer", on_click=self.get_bot_response,use_container_width=True)
             if st.session_state["bot_response"]:
                 col1.write(st.session_state["bot_response"])
-            col2.markdown("**Recommended Questions:**")
-            col2.markdown(recommended_questions)
+            #col2.markdown("**Recommended Questions:**")
+            #col2.markdown(recommended_questions)
+            with col2:
+                self.display_bill_info(bill_medata,recommended_questions)
 
         with content_tab:
             col1, col2 = st.columns(2)

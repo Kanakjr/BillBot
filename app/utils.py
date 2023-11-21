@@ -1,12 +1,11 @@
 import json, os
 import pandas as pd
-from llm_utils import summarize_bill, get_recommended_question
+from llm_utils import summarize_bill, get_recommended_question,get_bill_metadata
 import base64
 from formrecognizer import analyze_pdf_document
 
 # Function to extract text from a PDF file
 def extract_text_from_pdf(json_data):
-    print(json_data)
     text = json_data["content"]
     return text
 
@@ -92,6 +91,19 @@ def get_or_generate_analyze_json(pdf_path):
         with open(analyze_json_file_path, "w") as analyze_json_file:
             analyze_json_file.write(analyze_json)
         return analyze_results
+    
+def get_or_generate_metadata_json(pdf_path,document_content, key_values):
+    metadata_json_file_path = pdf_path + "_metadata.json"
+    if os.path.exists(metadata_json_file_path):
+        with open(metadata_json_file_path, "r") as metadata_json_file:
+            metadata_json = metadata_json_file.read()
+        return json.loads(metadata_json)
+    else:
+        metadata_results = get_bill_metadata(document_content, key_values)
+        metadata_json = json.dumps(metadata_results, indent=2)
+        with open(metadata_json_file_path, "w") as metadata_json_file:
+            metadata_json_file.write(metadata_json)
+        return metadata_results
 
 def displayPDF(file):
     with open(file, "rb") as f:
