@@ -119,7 +119,7 @@ class BillBotApp:
     def display_bill_info(self,json_data,recommended_questions=None):
         with st.expander("Metadata"):
             named_entities = self.named_entities_to_str(json_data["named_entities"])
-            st.markdown(f"""**Document Type:** {json_data["document_type"]}
+            st.markdown(f"""**Type:** {json_data["document_type"]} **Language:** {json_data["language"]}  **Currency:** {json_data["currency"]}
                         
 **Keywords:**  {" | ".join(json_data["keywords"])}
 
