@@ -33,7 +33,6 @@ def convert_keyvalues_to_dict(json_data, confidence_threshold=0.5):
 
 def convert_tables_to_df(json_data):
     tables = json_data["tables"]
-    print(tables)
     dataframes = []
     for table in tables:
         rows = table["row_count"]

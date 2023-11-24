@@ -92,7 +92,7 @@ def get_bill_metadata(document_content, key_values=[]):
 - named_entities: A list of named entities from the document, with each named entity being a list of the extracted name and its type (PERSON,Organization,Location,Date,Time,etc) (e.g., [["Steve Jobs", "PERSON"], ["India", "COUNTRY"]]).
 - document_type: Identify and categorize the type of document (e.g., "bill", "invoice", "ID card", "invoice", "contract", "report", "legal document" etc.).
 - language: Determine the language in which the document is written
-- currency: Determine the currency if available in which the bill is presented.
+- currency: Determine the currency used in the document. Output the currency code, such as USD, EUR, GBP, INR etc. Consider variations in formatting and placement of currency symbols, as well as potential textual references to currencies. 
 
 ## JSON Output:
 """,
