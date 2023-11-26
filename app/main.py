@@ -59,9 +59,13 @@ class BillBotApp:
 
             pdf_files = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".pdf")]
             # Selectbox to choose a PDF file
-            st.session_state["selected_pdf"] = st.selectbox(
+            selected_pdf = st.selectbox(
                 "Select PDF file", pdf_files, index=pdf_files.index(st.session_state["selected_pdf"]) if st.session_state["selected_pdf"] else 0
             )
+
+            if selected_pdf != st.session_state["selected_pdf"]:
+                st.session_state["selected_pdf"] = selected_pdf
+                st.rerun()
 
             st.markdown("---")
             st.markdown("#### My Settings")
@@ -119,7 +123,9 @@ class BillBotApp:
     def display_bill_info(self,json_data,recommended_questions=None):
         with st.expander("Metadata"):
             named_entities = self.named_entities_to_str(json_data["named_entities"])
-            st.markdown(f"""**Type:** {json_data["document_type"]} | **Language:** {json_data["language"]} |  **Currency:** {json_data["currency"]}
+            st.markdown(f"""**Filename:** {st.session_state["selected_pdf"]}
+
+**Type:** {json_data["document_type"]} | **Language:** {json_data["language"]} |  **Currency:** {json_data["currency"]}
                         
 **Keywords:**  {" | ".join(json_data["keywords"])}
 
@@ -158,8 +164,6 @@ class BillBotApp:
             col1.button("Get Answer", on_click=self.get_bot_response,use_container_width=True)
             if st.session_state["bot_response"]:
                 col1.write(st.session_state["bot_response"])
-            #col2.markdown("**Recommended Questions:**")
-            #col2.markdown(recommended_questions)
             with col2:
                 self.display_bill_info(bill_medata,recommended_questions)
 

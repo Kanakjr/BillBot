@@ -129,7 +129,7 @@ def get_billbot_response(question, document_summary, key_values=[]):
 
 ## You have to answer the given user question stricty from the document. 
 Do not assume any values or answer on your own. 
-If you don't know the answer resppnd with "I don't know the answer"
+If you don't know the answer respond with "I don't know the answer"
 
 ## Question: {question}
 """,
