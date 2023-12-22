@@ -121,7 +121,7 @@ class BillBotApp:
         return result_string
 
     def display_bill_info(self,json_data,recommended_questions=None):
-        with st.expander("Metadata"):
+        with st.expander("Metadata",expanded=True):
             named_entities = self.named_entities_to_str(json_data["named_entities"])
             st.markdown(f"""**Filename:** {st.session_state["selected_pdf"]}
 
