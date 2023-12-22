@@ -173,9 +173,9 @@ class BillBotApp:
             col1.markdown(displayPDF(pdf_path), unsafe_allow_html=True)
             col2.text_area(label="PDF Text:", value=pdf_text, height=200)
             col2.text_area(label="Summary:", value=bill_summary, height=250)
-            with st.expander("Extracted keyValuePairs:"):
+            with st.expander("Extracted keyValuePairs:",expanded=True):
                 st.table(key_value_pairs)
-            with st.expander("Extracted Tables:"):
+            with st.expander("Extracted Tables:",expanded=True):
                 for df in df_list:
                     st.write(df)
 
