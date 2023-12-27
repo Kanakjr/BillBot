@@ -11,6 +11,7 @@ from utils import (
     get_or_generate_analyze_json,
     get_or_generate_recommended_questions,
     displayPDF,
+    combine_dataframes_to_csv_string,
 )
 from llm_utils import get_billbot_response
 
@@ -157,7 +158,7 @@ class BillBotApp:
         st.session_state["bill_summary"] = bill_summary
         st.session_state["key_value_pairs"] = key_value_pairs
 
-        bot_tab, content_tab = st.tabs(["Bot", "Content"])
+        bot_tab, content_tab, debug_tab = st.tabs(["Bot", "Content", "Debug"])
         with bot_tab:
             col1, col2 = st.columns([1, 1], gap="medium")
             col1.text_area("Question on bill document", key="bot_question")
@@ -178,6 +179,31 @@ class BillBotApp:
             with st.expander("Extracted Tables:",expanded=True):
                 for df in df_list:
                     st.write(df)
+
+        with debug_tab:
+            output_structure = {"CreditCard":{"BankName":"","CreditCardType":"","NameOnCard":"","CardNo":"","CreditLimit":"","Statement":{"StatementDate":"","PaymentDueDate":"","TotalAmountDue":"","MinimumAmountDue":"","FinanceCharges":"","Transactions":[{"TransactionDate":"","TransactionDescription":"","TransactionType":"","TransactionAmount":"","TransactionCategory":{"TransactionHead":"","TransactionSubHead":"","Payee":""}}]}}}
+            output_structure.pop('Transactions')
+            prompt = f'''## Summary:
+{bill_summary}
+
+## Data extracted from document as key values: 
+{key_value_pairs}
+
+## Tables extracted from document: 
+{combine_dataframes_to_csv_string(df_list)}
+
+## Output Structure:
+{output_structure}
+
+<Credit Card Type> - e.g. Infinia, Coral, AmazonPay etc.
+<Transaction Type> - e.g. credit or debit
+<Transaction Head> e.g. insurance, investment, expense,  etc.
+<Transaction Sub Head> e.g. life insurance, grocery, entertainment etc
+<Payee> e.g. LIC, HDFC, Green Mart, Club Mahindra, Netflix etc.
+
+## Output:
+'''
+            st.text_area(label='prompt',value=prompt,height=1000)
 
 
 # Main entry point for the application

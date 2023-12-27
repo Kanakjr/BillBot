@@ -109,3 +109,18 @@ def displayPDF(file):
         base64_pdf = base64.b64encode(f.read()).decode('utf-8')
     pdf_md = F'<embed src="data:application/pdf;base64,{base64_pdf}" width=100% height="500" type="application/pdf">'
     return pdf_md
+
+def df_to_csv_string(df):
+        csv_string = df.to_csv(index=False)
+        lines = csv_string.split('\n')
+        lines = lines[1:]
+        prefixed_lines = [f"{line}" for line in lines]
+        return '\n'.join(prefixed_lines)
+
+def combine_dataframes_to_csv_string(df_list):
+    combined_csv_string = ""
+    for i, df in enumerate(df_list, start=1):
+        combined_csv_string += f'### table{i}:\n'
+        combined_csv_string += df_to_csv_string(df)
+        combined_csv_string += '\n\n'
+    return combined_csv_string

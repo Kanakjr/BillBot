@@ -23,4 +23,4 @@ jobs:
           docker build -f "Dockerfile" -t billbot:latest .
           docker stop billbot || true
           sleep 5
-          docker run --rm -d -p 8504:8504/tcp --name billbot billbot
+          docker run --rm -d -p 8504:8504/tcp --name billbot -v $(pwd)/app/data:/app/data billbot
