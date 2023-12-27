@@ -1,8 +1,9 @@
 import json, os
 import pandas as pd
-from llm_utils import summarize_bill, get_recommended_question,get_bill_metadata
+from llm_utils import summarize_bill, get_recommended_question, get_bill_metadata
 import base64
 from formrecognizer import analyze_pdf_document
+
 
 # Function to extract text from a PDF file
 def extract_text_from_pdf(json_data):
@@ -78,6 +79,7 @@ def get_or_generate_recommended_questions(pdf_path, document_summary, key_values
             recommended_questions_file.write(recommended_questions)
     return recommended_questions
 
+
 def get_or_generate_analyze_json(pdf_path):
     analyze_json_file_path = pdf_path + ".json"
     if os.path.exists(analyze_json_file_path):
@@ -90,8 +92,9 @@ def get_or_generate_analyze_json(pdf_path):
         with open(analyze_json_file_path, "w") as analyze_json_file:
             analyze_json_file.write(analyze_json)
         return analyze_results
-    
-def get_or_generate_metadata_json(pdf_path,document_content, key_values):
+
+
+def get_or_generate_metadata_json(pdf_path, document_content, key_values):
     metadata_json_file_path = pdf_path + "_metadata.json"
     if os.path.exists(metadata_json_file_path):
         with open(metadata_json_file_path, "r") as metadata_json_file:
@@ -104,23 +107,76 @@ def get_or_generate_metadata_json(pdf_path,document_content, key_values):
             metadata_json_file.write(metadata_json)
         return metadata_results
 
+
 def displayPDF(file):
     with open(file, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_md = F'<embed src="data:application/pdf;base64,{base64_pdf}" width=100% height="500" type="application/pdf">'
+        base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+    pdf_md = f'<embed src="data:application/pdf;base64,{base64_pdf}" width=100% height="500" type="application/pdf">'
     return pdf_md
 
+
 def df_to_csv_string(df):
-        csv_string = df.to_csv(index=False)
-        lines = csv_string.split('\n')
-        lines = lines[1:]
-        prefixed_lines = [f"{line}" for line in lines]
-        return '\n'.join(prefixed_lines)
+    csv_string = df.to_csv(index=False)
+    lines = csv_string.split("\n")
+    lines = lines[1:]
+    prefixed_lines = [f"{line}" for line in lines]
+    return "\n".join(prefixed_lines)
+
 
 def combine_dataframes_to_csv_string(df_list):
     combined_csv_string = ""
     for i, df in enumerate(df_list, start=1):
-        combined_csv_string += f'### table{i}:\n'
+        combined_csv_string += f"### table{i}:\n"
         combined_csv_string += df_to_csv_string(df)
-        combined_csv_string += '\n\n'
+        combined_csv_string += "\n\n"
     return combined_csv_string
+
+
+def generate_transaction_df(df_list):
+    transaction_dfs = []
+    concatenated_dfs = []
+
+    for df in df_list:
+        for i in range(min(5, len(df))):
+            row = df.iloc[i]
+            if not any(pd.isnull(row)):
+                score = sum(
+                    [
+                        (keyword.lower() in col.lower())
+                        for col in row
+                        for keyword in ["date", "transaction", "amount", "reward", "particulars"]
+                    ]
+                )
+                if score >= 2:
+                    header_row = row
+                    header_index = i
+                    break
+        else:
+            continue
+
+        data_rows = df.iloc[header_index + 1 :]
+        transaction_df = pd.DataFrame(data_rows.values, columns=header_row.values)
+        transaction_dfs.append(transaction_df)
+
+    unique_columns = set(tuple(transaction_df.columns) for transaction_df in transaction_dfs)
+    print('unique_columns',unique_columns)
+
+    for columns in unique_columns:
+        filtered_dfs = [transaction_df for transaction_df in transaction_dfs if tuple(transaction_df.columns) == columns]
+        concatenated_df = pd.concat(filtered_dfs, ignore_index=True)
+        # concatenated_df.columns = header_row.values
+        concatenated_df = clean_transaction_df(concatenated_df)
+        concatenated_dfs.append(concatenated_df)
+
+    return concatenated_dfs if concatenated_dfs else None
+
+def clean_transaction_df(final_transaction_df):
+    final_transaction_df = final_transaction_df.dropna(axis=1, how="all")
+
+    date_columns = final_transaction_df.columns[final_transaction_df.columns.str.lower().str.contains('date')]
+
+    if len(date_columns) > 0:
+        final_transaction_df[date_columns[0]] = final_transaction_df[date_columns[0]].replace("", pd.NA)
+        final_transaction_df = final_transaction_df.dropna(subset=[date_columns[0]], axis=0, how="any")
+
+    return final_transaction_df

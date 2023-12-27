@@ -12,6 +12,7 @@ from utils import (
     get_or_generate_recommended_questions,
     displayPDF,
     combine_dataframes_to_csv_string,
+    generate_transaction_df
 )
 from llm_utils import get_billbot_response
 
@@ -182,7 +183,7 @@ class BillBotApp:
 
         with debug_tab:
             output_structure = {"CreditCard":{"BankName":"","CreditCardType":"","NameOnCard":"","CardNo":"","CreditLimit":"","Statement":{"StatementDate":"","PaymentDueDate":"","TotalAmountDue":"","MinimumAmountDue":"","FinanceCharges":"","Transactions":[{"TransactionDate":"","TransactionDescription":"","TransactionType":"","TransactionAmount":"","TransactionCategory":{"TransactionHead":"","TransactionSubHead":"","Payee":""}}]}}}
-            output_structure.pop('Transactions')
+            #output_structure.pop('Transactions')
             prompt = f'''## Summary:
 {bill_summary}
 
@@ -203,7 +204,13 @@ class BillBotApp:
 
 ## Output:
 '''
-            st.text_area(label='prompt',value=prompt,height=1000)
+            st.text_area(label='prompt',value=prompt,height=300)
+
+            st.markdown('### Processed Transaction Tables:')
+            final_transaction_df_list = generate_transaction_df(df_list=df_list)
+            for final_transaction_df in final_transaction_df_list:
+                st.dataframe(final_transaction_df)
+            
 
 
 # Main entry point for the application
