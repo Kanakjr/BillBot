@@ -1,6 +1,6 @@
 import json, os
 import pandas as pd
-from llm_utils import summarize_bill, get_recommended_question, get_bill_metadata
+from llm_utils import summarize_bill, get_recommended_question, get_bill_metadata, get_credit_card_output
 import base64
 from formrecognizer import analyze_pdf_document
 
@@ -106,6 +106,20 @@ def get_or_generate_metadata_json(pdf_path, document_content, key_values):
         with open(metadata_json_file_path, "w") as metadata_json_file:
             metadata_json_file.write(metadata_json)
         return metadata_results
+    
+def get_or_generate_creditcard_json(pdf_path, bill_summary, key_value_pairs):
+    cc_file_path = pdf_path + "_cc.json"
+    if os.path.exists(cc_file_path):
+        with open(cc_file_path, "r") as cc_json_file:
+            cc_json = cc_json_file.read()
+        return json.loads(cc_json)
+    else:
+        cc_results = get_credit_card_output(bill_summary, key_value_pairs)
+        cc_json = json.dumps(cc_results, indent=2)
+        with open(cc_file_path, "w") as cc_json_file:
+            cc_json_file.write(cc_json)
+        return cc_results
+
 
 
 def displayPDF(file):
@@ -118,7 +132,7 @@ def displayPDF(file):
 def df_to_csv_string(df):
     csv_string = df.to_csv(index=False)
     lines = csv_string.split("\n")
-    lines = lines[1:]
+    # lines = lines[1:]
     prefixed_lines = [f"{line}" for line in lines]
     return "\n".join(prefixed_lines)
 
@@ -159,7 +173,6 @@ def generate_transaction_df(df_list):
         transaction_dfs.append(transaction_df)
 
     unique_columns = set(tuple(transaction_df.columns) for transaction_df in transaction_dfs)
-    print('unique_columns',unique_columns)
 
     for columns in unique_columns:
         filtered_dfs = [transaction_df for transaction_df in transaction_dfs if tuple(transaction_df.columns) == columns]

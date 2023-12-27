@@ -147,6 +147,39 @@ If you don't know the answer respond with "I don't know the answer"
     response = response["text"]
     return response
 
+@st.cache_data(ttl=60 * 60 * 12, show_spinner=False)  # Cache data for 12 hours
+def get_credit_card_output(bill_summary, key_value_pairs ):
+    key_value_pairs = format_dict_as_string(key_value_pairs)
+    output_structure = {"CreditCard":{"BankName":"","CreditCardType":"","NameOnCard":"","CardNo":"","CreditLimit":"","Statement":{"StatementDate":"","PaymentDueDate":"","TotalAmountDue":"","MinimumAmountDue":"","FinanceCharges":"",}}}
+    # "Transactions":[{"TransactionDate":"","TransactionDescription":"","TransactionType":"","TransactionAmount":"","TransactionCategory":{"TransactionHead":"","TransactionSubHead":"","Payee":""}}]
+    prompt = PromptTemplate(
+        input_variables=["bill_summary", "key_value_pairs", "output_structure"],
+        template='''## Summary:
+{bill_summary}
+
+## Data extracted from Credit Card Statement as key values: 
+{key_value_pairs}
+
+## Output_JSON_Format:
+{output_structure}
+
+## Task: Structure the data into the provided Output_JSON_Format. 
+
+## Output JSON:
+''',
+    )
+    llm = get_llm(max_tokens=500)
+    chain = LLMChain(llm=llm, prompt=prompt)
+    response = chain.invoke(
+        input={
+            "bill_summary": bill_summary,
+            "key_value_pairs": key_value_pairs,
+            "output_structure": output_structure,
+        },
+        config={"run_name": "BillBot"},
+    )
+    response = response["text"]
+    return response
 
 def format_dict_as_string(input_dict):
     formatted_string = ""
