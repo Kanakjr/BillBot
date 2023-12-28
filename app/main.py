@@ -64,6 +64,8 @@ class BillBotApp:
                 st.session_state["selected_pdf"] = uploaded_file.name
 
             pdf_files = [f for f in os.listdir(DATA_FOLDER) if f.endswith(".pdf")]
+            pdf_files = sorted(pdf_files)
+            
             # Selectbox to choose a PDF file
             selected_pdf = st.selectbox(
                 "Select PDF file", pdf_files, index=pdf_files.index(st.session_state["selected_pdf"]) if st.session_state["selected_pdf"] else 0
