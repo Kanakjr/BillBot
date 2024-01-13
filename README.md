@@ -91,4 +91,4 @@ The project follows a modular structure with key components in the `app` directo
 
 ---
 
-*This project is designed to enhance the accessibility and understanding of billing documents, making life simpler in the digital era.*
+*This project is designed to enhance the accessibility and understanding of billing documents, making life simpler in the digital era using the power of AI.*
