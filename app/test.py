@@ -2,6 +2,7 @@
 import os
 from dotenv import load_dotenv
 import pandas as pd
+import numpy as np
 import warnings
 warnings.filterwarnings('ignore',category=Warning)
 from utils import (
@@ -42,9 +43,8 @@ def process_credit_card_data(df_list):
         'Amount (in Rs.)': 'Amount',
         'Amount': 'Amount',
         'Particulars': 'Transaction Description',
-        'Intl.# amount': 'Amount',
-        'Intl. amount': 'Amount',
-        'Intl.# amount': 'Amount',
+        # 'Intl.# amount': 'Amount',
+        # 'Intl. amount': 'Amount',
     }
 
     # Initialize an empty list to store the consolidated dataframes
@@ -69,8 +69,12 @@ def process_credit_card_data(df_list):
     # Concatenate all the dataframes in the list
     consolidated_df = pd.concat(consolidated_dfs, ignore_index=True)
 
+    consolidated_df = consolidated_df.dropna()
+    consolidated_df['Credit/Debit'] = np.where(consolidated_df['Amount'].str.contains('Cr'), 'Credit', 'Debit')
+
     # Convert Amount column to numeric and handle commas in numeric values
-    #consolidated_df['Amount'] = pd.to_numeric(consolidated_df['Amount'].replace('[\$,]', '', regex=True), errors='coerce')
+    # consolidated_df['Amount'] = pd.to_numeric(consolidated_df['Amount'].replace('[\$,]', '', regex=True), errors='coerce')
+    # consolidated_df['Amount'] = pd.to_numeric(consolidated_df['Amount'].replace('[^\d.]', '', regex=True), errors='coerce')
 
     return consolidated_df,consolidated_dfs
 
